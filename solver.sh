@@ -17,9 +17,22 @@ if [ -z "$1" ]; then
 else
 	word="$1"
 fi
+
 #read user input
 echo -e "Enter result. Use '-' if letter does not appear in word. \nUse '/' if letter appears, but is in wrong spot \nUse '+' if letter appears and is in correct spot"
 read -r result
+
+shuffle_word() {
+	#shuffle words
+	#remove repeating letters, only if there are too many words
+	if [ "$full_search_amount" -gt 200 ]; then
+		word=$(shuf -n 1 <<< $(grep -Ev '^.*(.).*\1.*$' <<< "$full_search"))
+	else
+		word=$(shuf -n 1 <<< "$full_search")
+	fi
+	echo "Try this one: $word"
+	read -r result
+}
 
 array_results() {
 	word_array=( $(echo "$word" | grep -o .) )
@@ -31,11 +44,10 @@ declare -A raw_results
 create_raw_results() {
 	declare -A regexes
 	if [ -z "$raw_results" ]; then
-		raw_results=$(
 		for ((i=0; $i<5; i++)); do
 			regexes=( ["-"]="." ["/"]="^${word_array[$i]}" ["+"]="${word_array[$i]}" )
-			printf "${regexes[${result_array[$i]}]}"
-		done)
+			raw_results[$i]="${regexes[${result_array[$i]}]}"
+		done
 	else
 		for ((i=0; $i<5; i++)); do
 			if [[ "${raw_results[$i]}" == "[a-z]{1}" ]]; then continue
@@ -103,36 +115,15 @@ if $debug ; then set -x ; fi
 	fi
 }
 look_for_word
-###############################################
-#exit 1
-###############################################
 
-#once again removing repeating letters, only if there are too many words
-if [ "$full_search_amount" -gt 200 ]; then
-	word=$(shuf -n 1 <<< $(grep -Ev '^.*(.).*\1.*$' <<< "$full_search"))
-else
-	word=$(shuf -n 1 <<< "$full_search")
-fi
-echo "Try this one: $word"
-read -r result
-
-array_results
-create_raw_results
-create_prefix
-create_search
-
-#search="${search}$(
-#for ((i=0; $i<5; i++)); do
-#	printf "%s" "(" "${regexes[${result_array[$i]}]}" "${word_array[$i]}" ")"
-#done)"
-#echo ""
-
-look_for_word
-#full_search=$(grep -Pi "^${search}.{5}" words.txt)
-#echo "There are $(wc -l <<< $full_search) words found"
-
-word=$(shuf -n 1 <<< "$full_search")
-echo "Try this one: $word"
+until [ "$full_search_amount" -eq 1 ]; do
+	array_results
+	create_raw_results
+	create_prefix
+	create_search
+	look_for_word
+	shuffle_word
+done
 
 if $debug ; then
 	set +x
