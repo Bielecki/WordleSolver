@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+
 if [ -z "$1" ]; then
 	#shuffle first word, but not with repeating letters
 	#double and repeating letters are permitted in wordle,
@@ -101,7 +101,12 @@ create_search() {
 	if [ "${#legal_characters[@]}" -eq 0 ]; then
 		local legal_characters=( "a-z" )
 	fi
-	search="(?=.{0,4}[$(printf %s ${legal_characters[@]} | tr -d ' ')])(?!.{0,4}[$(printf %s ${illegal_characters[@]} | tr -d ' ')])"
+	search="$(
+	for ((i=0; $i<${#legal_characters[@]}; i++)); do
+		printf %s '(?=.{0,4}[' ${legal_characters[$i]} '])'
+	done
+	)(?!.{0,4}[$(
+	printf %s ${illegal_characters[@]} | tr -d ' ')])"
 }
 create_search
 
@@ -116,6 +121,9 @@ look_for_word() {
 	fi
 }
 look_for_word
+if [ "$full_search_amount" -eq 1 ]; then
+	break
+fi
 shuffle_word
 
 until [ "$full_search_amount" -eq 1 ]; do
@@ -125,5 +133,8 @@ until [ "$full_search_amount" -eq 1 ]; do
 	create_prefix
 	create_search
 	look_for_word
+	if [ "$full_search_amount" -eq 1 ]; then
+		break
+	fi
 	shuffle_word
 done
