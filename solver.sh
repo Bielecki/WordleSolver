@@ -1,13 +1,5 @@
 #!/bin/bash
-
-# grep -Pi '(?=[^m][l][^a][^l][m])(?=.{0,4}m)(?=.{0,4}a)(?!.{0,4}n)(?=.{0,4}l)(?!.{0,4}y)(?!.{0,4}c)(?!.{0,4}i).{5}' words.txt | sort
-
-if [ "$1" == "-v" ]; then
-	debug=true
-	shift
-	set -x
-fi
-
+set -x
 if [ -z "$1" ]; then
 	#shuffle first word, but not with repeating letters
 	#double and repeating letters are permitted in wordle,
@@ -19,13 +11,12 @@ else
 fi
 
 #read user input
-echo -e "Enter result. Use '-' if letter does not appear in word. \nUse '/' if letter appears, but is in wrong spot \nUse '+' if letter appears and is in correct spot"
+echo -e "Enter result. \nUse '-' if letter does not appear in word. \nUse '/' if letter appears, but is in wrong spot \nUse '+' if letter appears and is in correct spot"
 read -r result
 
 shuffle_word() {
-	#shuffle words
 	#remove repeating letters, only if there are too many words
-	if [ "$full_search_amount" -gt 200 ]; then
+	if [ "$full_search_amount" -gt 100 ]; then
 		word=$(shuf -n 1 <<< $(grep -Ev '^.*(.).*\1.*$' <<< "$full_search"))
 	else
 		word=$(shuf -n 1 <<< "$full_search")
@@ -39,6 +30,20 @@ array_results() {
 	result_array=( $(echo "$result" | grep -o .) )
 }
 array_results
+
+declare -a legal_characters
+declare -a illegal_characters
+
+available_characters() {
+	for ((i=0; $i<5; i++)); do
+		if [[ "${result_array[$i]}" == "/" && ! "${legal_characters[*]}" =~ "${word_array[$i]}" ]]; then
+			legal_characters+=( "${word_array[$i]}" )
+		elif [[ "${result_array[$i]}" == "-" && ! "${illegal_characters[*]}" =~ "${word_array[$i]}" && ! "${legal_characters[*]}" =~ "${word_array[$i]}" ]]; then
+			illegal_characters+=( "${word_array[$i]}" )
+		fi
+	done
+}
+available_characters
 
 declare -A raw_results
 create_raw_results() {
@@ -63,8 +68,6 @@ create_raw_results() {
 				#replace
 				raw_results[$i]="^${word_array[$i]}"
 			fi
-	#		regexes=( ["-"]="." ["/"]="^${word_array[$i]}" ["+"]="${word_array[$i]}" )
-	#		printf "${regexes[${result_array[$i]}]}"
 		done
 	fi
 }
@@ -82,7 +85,11 @@ create_prefix() {
 	else
 		prefix=$(printf "(?="
 		for ((i=0; $i<5; i++)); do
-			regexes=( ["-"]="${raw_results[$i]}" ["/"]="[${raw_results[$i]}]" ["+"]="[${raw_results[$i]}]" )
+			if [ "${raw_results[$i]}" == "." ]; then
+				regexes=( ["-"]="${raw_results[$i]}" ["/"]="[${raw_results[$i]}]" ["+"]="[${raw_results[$i]}]" )
+			else
+				regexes=( ["-"]="[${raw_results[$i]}]" ["/"]="[${raw_results[$i]}]" ["+"]="[${raw_results[$i]}]" )
+			fi
 			printf "${regexes[${result_array[$i]}]}"
 		done
 		printf ")")
@@ -91,41 +98,32 @@ create_prefix() {
 create_prefix
 
 create_search() {
-	declare -A regexes
-	regexes=( ["-"]="?!.{0,4}" ["/"]="?=.{0,4}" ["+"]="" )
-	search="${prefix}$(
-	for ((i=0; $i<5; i++)); do
-		if [ "${result_array[$i]}" == "+" ]; then continue; fi
-		printf "%s" "(" "${regexes[${result_array[$i]}]}" "${word_array[$i]}" ")"
-	done)"
+	if [ "${#legal_characters[@]}" -eq 0 ]; then
+		local legal_characters=( "a-z" )
+	fi
+	search="(?=.{0,4}[$(printf %s ${legal_characters[@]} | tr -d ' ')])(?!.{0,4}[$(printf %s ${illegal_characters[@]} | tr -d ' ')])"
 }
 create_search
-echo ""
 
 look_for_word() {
-if $debug ; then set +x ; fi
-	full_search=$(grep -Pi "^${search}.{5}" words.txt)
-if $debug ; then set -x ; fi
+	full_search=$(grep -Pi "^${prefix}${search}.{5}" words.txt)
 	full_search_amount=$(wc -l <<< "$full_search")
-	echo "There are $full_search_amount words found"
+	printf "There are $full_search_amount words found: "
 	if [ "$full_search_amount" -gt 20 ]; then
-		echo "Too many words found, not giving list"
+		printf "not giving list - too many\n"
 	else
-		echo "$full_search"
+		printf "\n$full_search\n"
 	fi
 }
 look_for_word
+shuffle_word
 
 until [ "$full_search_amount" -eq 1 ]; do
 	array_results
+	available_characters
 	create_raw_results
 	create_prefix
 	create_search
 	look_for_word
 	shuffle_word
 done
-
-if $debug ; then
-	set +x
-fi
-#	combined+=(  )

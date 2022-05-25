@@ -215,7 +215,6 @@ argot
 argue
 arias
 arise
-arity
 armed
 armor
 aroma
@@ -5423,7 +5422,6 @@ visor
 vista
 vitae
 vital
-vitam
 vitas
 vitro
 vivas
