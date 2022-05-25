@@ -2,6 +2,12 @@
 
 # grep -Pi '(?=[^m][l][^a][^l][m])(?=.{0,4}m)(?=.{0,4}a)(?!.{0,4}n)(?=.{0,4}l)(?!.{0,4}y)(?!.{0,4}c)(?!.{0,4}i).{5}' words.txt | sort
 
+if [ "$1" == "-v" ]; then
+	debug=true
+	shift
+	set -x
+fi
+
 if [ -z "$1" ]; then
 	#shuffle first word, but not with repeating letters
 	#double and repeating letters are permitted in wordle,
@@ -21,14 +27,54 @@ array_results() {
 }
 array_results
 
+declare -A raw_results
+create_raw_results() {
+	declare -A regexes
+	if [ -z "$raw_results" ]; then
+		raw_results=$(
+		for ((i=0; $i<5; i++)); do
+			regexes=( ["-"]="." ["/"]="^${word_array[$i]}" ["+"]="${word_array[$i]}" )
+			printf "${regexes[${result_array[$i]}]}"
+		done)
+	else
+		for ((i=0; $i<5; i++)); do
+			if [[ "${raw_results[$i]}" == "[a-z]{1}" ]]; then continue
+			elif [ "${result_array[$i]}" == "+" ]; then
+				#replace no matter what
+				raw_results[$i]="${word_array[$i]}"
+			elif [ "${raw_results[$i]::1}" == "^" -a "${result_array[$i]}" == "-" ]; then continue
+			elif [ "${raw_results[$i]::1}" == "^" -a "${result_array[$i]}" == "/" ]; then
+				#add letter
+				raw_results[$i]="${raw_results[$i]}${word_array[$i]}"
+			elif [ "${raw_results[$i]}" == "." -a "${result_array[$i]}" == "-" ]; then continue
+			elif [ "${raw_results[$i]}" == "." -a "${result_array[$i]}" == "/" ]; then
+				#replace
+				raw_results[$i]="^${word_array[$i]}"
+			fi
+	#		regexes=( ["-"]="." ["/"]="^${word_array[$i]}" ["+"]="${word_array[$i]}" )
+	#		printf "${regexes[${result_array[$i]}]}"
+		done
+	fi
+}
+create_raw_results
+
 create_prefix() {
 	declare -A regexes
-	prefix=$(printf "(?="
-	for ((i=0; $i<5; i++)); do
-		regexes=( ["-"]="." ["/"]="[^${word_array[$i]}]" ["+"]="[${word_array[$i]}]" )
-		printf "${regexes[${result_array[$i]}]}"
-	done
-	printf ")")
+	if [ -z "$prefix" ]; then
+		prefix=$(printf "(?="
+		for ((i=0; $i<5; i++)); do
+			regexes=( ["-"]="." ["/"]="[^${word_array[$i]}]" ["+"]="[${word_array[$i]}]" )
+			printf "${regexes[${result_array[$i]}]}"
+		done
+		printf ")")
+	else
+		prefix=$(printf "(?="
+		for ((i=0; $i<5; i++)); do
+			regexes=( ["-"]="${raw_results[$i]}" ["/"]="[${raw_results[$i]}]" ["+"]="[${raw_results[$i]}]" )
+			printf "${regexes[${result_array[$i]}]}"
+		done
+		printf ")")
+	fi
 }
 create_prefix
 
@@ -45,7 +91,9 @@ create_search
 echo ""
 
 look_for_word() {
+if $debug ; then set +x ; fi
 	full_search=$(grep -Pi "^${search}.{5}" words.txt)
+if $debug ; then set -x ; fi
 	full_search_amount=$(wc -l <<< "$full_search")
 	echo "There are $full_search_amount words found"
 	if [ "$full_search_amount" -gt 20 ]; then
@@ -69,20 +117,24 @@ echo "Try this one: $word"
 read -r result
 
 array_results
+create_raw_results
+create_prefix
+create_search
 
-#word_array=( $(echo "$word" | grep -o .) )
-#result_array=( $(echo "$result" | grep -o .) )
+#search="${search}$(
+#for ((i=0; $i<5; i++)); do
+#	printf "%s" "(" "${regexes[${result_array[$i]}]}" "${word_array[$i]}" ")"
+#done)"
+#echo ""
 
-search="${search}$(
-for ((i=0; $i<5; i++)); do
-	printf "%s" "(" "${regexes[${result_array[$i]}]}" "${word_array[$i]}" ")"
-done)"
-echo ""
-
-full_search=$(grep -Pi "^${search}.{5}" words.txt)
-echo "There are $(wc -l <<< $full_search) words found"
+look_for_word
+#full_search=$(grep -Pi "^${search}.{5}" words.txt)
+#echo "There are $(wc -l <<< $full_search) words found"
 
 word=$(shuf -n 1 <<< "$full_search")
 echo "Try this one: $word"
 
+if $debug ; then
+	set +x
+fi
 #	combined+=(  )
