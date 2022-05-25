@@ -11,7 +11,7 @@ else
 fi
 
 #read user input
-echo -e "Enter result. \nUse '-' if letter does not appear in word. \nUse '/' if letter appears, but is in wrong spot \nUse '+' if letter appears and is in correct spot"
+echo -e "Enter result. \nUse '-' if letter does not appear in word. \nUse '/' if letter appears, but is in wrong spot. \nUse '+' if letter appears and is in correct spot."
 read -r result
 
 shuffle_word() {
@@ -21,8 +21,15 @@ shuffle_word() {
 	else
 		word=$(shuf -n 1 <<< "$full_search")
 	fi
-	echo "Try this one: $word"
+	echo "Try this one: $word, or enter 'other' to provide your own word"
 	read -r result
+
+	if [ "$result" == "other" ]; then
+		echo "Please provide word then:"
+		read -r word
+		echo "Now please enter its result:"
+		read -r result
+	fi
 }
 
 array_results() {
@@ -31,14 +38,17 @@ array_results() {
 }
 array_results
 
+declare -a certain_characters
 declare -a legal_characters
 declare -a illegal_characters
 
 available_characters() {
 	for ((i=0; $i<5; i++)); do
-		if [[ "${result_array[$i]}" == "/" && ! "${legal_characters[*]}" =~ "${word_array[$i]}" ]]; then
+		if [[ "${result_array[$i]}" == "+" && ! "${certain_characters[*]}" =~ "${word_array[$i]}" ]]; then
+			certain_characters+=( "${word_array[$i]}" )
+		elif [[ "${result_array[$i]}" == "/" && ! "${legal_characters[*]}" =~ "${word_array[$i]}" ]]; then
 			legal_characters+=( "${word_array[$i]}" )
-		elif [[ "${result_array[$i]}" == "-" && ! "${illegal_characters[*]}" =~ "${word_array[$i]}" && ! "${legal_characters[*]}" =~ "${word_array[$i]}" ]]; then
+		elif [[ "${result_array[$i]}" == "-" && ! "${illegal_characters[*]}" =~ "${word_array[$i]}" && ! "${legal_characters[*]}" =~ "${word_array[$i]}" && ! "${certain_characters[*]}" =~ "${word_array[$i]}" ]]; then
 			illegal_characters+=( "${word_array[$i]}" )
 		fi
 	done
