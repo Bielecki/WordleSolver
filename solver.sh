@@ -1,11 +1,14 @@
 #!/bin/bash
 
+bold=$(tput bold setaf 6) #bold text and set to cyan
+normal=$(tput sgr0) #clear text attributes
+
 if [ -z "$1" ]; then
 	#shuffle first word, but not with repeating letters
 	#double and repeating letters are permitted in wordle,
 	#but we wont use them as a first word, to maximise letters tried
 	word=$(shuf -n 1 <<< $(grep -Ev '^.*(.).*\1.*$' words.txt))
-	echo "Try word: $word"
+	echo "Try word: ${bold}${word}${normal}"
 else
 	word="$1"
 fi
@@ -21,7 +24,7 @@ shuffle_word() {
 	else
 		word=$(shuf -n 1 <<< "$full_search")
 	fi
-	echo "Try this one: $word, or enter 'other' to provide your own word"
+	echo "Try this one: ${bold}${word}${normal}, or enter 'other' to provide your own word"
 	read -r result
 
 	if [ "$result" == "other" ]; then
