@@ -2897,7 +2897,6 @@ lorry
 loser
 loses
 lossy
-lotsa
 lotta
 lotto
 lotus
