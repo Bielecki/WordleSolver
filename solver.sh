@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#set -x
+
 bold=$(tput bold setaf 6) #bold text and set to cyan
 normal=$(tput sgr0) #clear text attributes
 
@@ -23,6 +25,50 @@ shuffle_word() {
 		word=$(shuf -n 1 <<< $(grep -Ev '^.*(.).*\1.*$' <<< "$full_search"))
 	else
 		word=$(shuf -n 1 <<< "$full_search")
+	fi
+	echo "Try this one: ${bold}${word}${normal}, or enter 'other' to provide your own word"
+	read -r result
+
+	if [ "$result" == "other" ]; then
+		echo "Please provide word then:"
+		read -r word
+		echo "Now please enter its result:"
+		read -r result
+	elif [ "$result" == "eliminate" ]; then
+		eliminate_words
+	fi
+}
+
+eliminate_words() {
+	alphabet=( $(printf "%s " {a..z}) )
+	unused_characters=$(echo "${certain_characters[@]} ${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
+	eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
+	if [[ "$(wc -l <<< $eliminated)" -gt 0 && -n "$eliminated" ]]; then
+		word=$(shuf -n1 <<< "$eliminated")
+	else
+		unused_characters=$(echo "${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
+		eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
+		if [[ "$(wc -l <<< $eliminated)" -gt 0 && -n "$eliminated" ]]; then
+			echo "Warning! Found only words matching already-correct and unused characters"
+			word=$(shuf -n1 <<< "$eliminated")
+		else
+			unused_characters=$(echo "${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
+			eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
+			if [[ "$(wc -l <<< $eliminated)" -gt 0 && -n "$eliminated" ]]; then
+				echo "Warning! Found only words matching already-correct, wrong-spot and unused characters"
+				word=$(shuf -n1 <<< "$eliminated")
+			else
+				echo "Cannot create word with characters left"
+				shuffle_word
+			fi
+		fi
+	fi
+
+	printf "Found $(wc -l <<< $eliminated) words, that could help you eliminate characters: "
+	if [ "$(wc -l <<< $eliminated)" -gt 20 ]; then
+		printf "not giving list - too many\n"
+	else
+		printf "\n$eliminated\n"
 	fi
 	echo "Try this one: ${bold}${word}${normal}, or enter 'other' to provide your own word"
 	read -r result
@@ -151,3 +197,5 @@ until [ "$full_search_amount" -eq 1 ]; do
 	fi
 	shuffle_word
 done
+
+set +x
