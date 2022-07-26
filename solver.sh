@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#set -x
-
 bold=$(tput bold setaf 6) #bold text and set to cyan
 normal=$(tput sgr0) #clear text attributes
 
@@ -39,28 +37,31 @@ shuffle_word() {
 	fi
 }
 
+search_eliminated_words() {
+	eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
+	#check if we can provide word without repeating letters
+	if [[ $(grep -Ev '^.*(.).*\1.*$' <<< "$eliminated" | wc -w) -gt 0 ]]; then
+		#if words with all unique letter are found, save only these
+		eliminated=$(grep -Ev '^.*(.).*\1.*$' <<< "$eliminated")
+	fi
+}
+
 eliminate_words() {
 	alphabet=( $(printf "%s " {a..z}) )
 	unused_characters=$(echo "${certain_characters[@]} ${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
-	eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
-	#check if we can provide word without repeating letters
-	if [[ $(grep -oEv '^.*(.).*\1.*$' <<< "$eliminated" | wc -l) -gt 0 ]]; then
-		#if words with all unique letter are found, save only these
-		eliminated=$(grep -oEv '^.*(.).*\1.*$' <<< "$eliminated")
-	fi
-	eliminated_amount=$(wc -l <<< "$eliminated")
-	if [[ "$eliminated_amount" -gt 0 && -n "$eliminated" ]]; then
+	search_eliminated_words	#search for eliminated words
+	if [[ -n "$eliminated" ]]; then
 		word=$(shuf -n1 <<< "$eliminated")
 	else
 		unused_characters=$(echo "${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
-		eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
-		if [[ "$eliminated_amount" -gt 0 && -n "$eliminated" ]]; then
+		search_eliminated_words	#search for eliminated words
+		if [[ -n "$eliminated" ]]; then
 			echo "Warning! Found only words matching already-correct and unused characters"
 			word=$(shuf -n1 <<< "$eliminated")
 		else
 			unused_characters=$(echo "${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
-			eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
-			if [[ "$eliminated_amount" -gt 0 && -n "$eliminated" ]]; then
+			search_eliminated_words	#search for eliminated words
+			if [[ -n "$eliminated" ]]; then
 				echo "Warning! Found only words matching already-correct, wrong-spot and unused characters"
 				word=$(shuf -n1 <<< "$eliminated")
 			else
@@ -70,8 +71,9 @@ eliminate_words() {
 		fi
 	fi
 
-	printf "Found $(wc -l <<< $eliminated) words, that could help you eliminate characters: "
-	if [ "$(wc -l <<< $eliminated)" -gt 20 ]; then
+#	eliminated_amount=$(wc -w <<< "$eliminated")
+	printf "Found $(wc -w <<< $eliminated) words, that could help you eliminate characters: "
+	if [ "$(wc -w <<< $eliminated)" -gt 20 ]; then
 		printf "not giving list - too many\n"
 	else
 		printf "\n$eliminated\n"
@@ -177,7 +179,7 @@ create_search
 
 look_for_word() {
 	full_search=$(grep -Pi "^${prefix}${search}.{5}" words.txt)
-	full_search_amount=$(wc -l <<< "$full_search")
+	full_search_amount=$(wc -w <<< "$full_search")
 	printf "There are $full_search_amount words found: "
 	if [ "$full_search_amount" -gt 20 ]; then
 		printf "not giving list - too many\n"
