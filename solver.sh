@@ -43,18 +43,24 @@ eliminate_words() {
 	alphabet=( $(printf "%s " {a..z}) )
 	unused_characters=$(echo "${certain_characters[@]} ${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
 	eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
-	if [[ "$(wc -l <<< $eliminated)" -gt 0 && -n "$eliminated" ]]; then
+	#check if we can provide word without repeating letters
+	if [[ $(grep -oEv '^.*(.).*\1.*$' <<< "$eliminated" | wc -l) -gt 0 ]]; then
+		#if words with all unique letter are found, save only these
+		eliminated=$(grep -oEv '^.*(.).*\1.*$' <<< "$eliminated")
+	fi
+	eliminated_amount=$(wc -l <<< "$eliminated")
+	if [[ "$eliminated_amount" -gt 0 && -n "$eliminated" ]]; then
 		word=$(shuf -n1 <<< "$eliminated")
 	else
 		unused_characters=$(echo "${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
 		eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
-		if [[ "$(wc -l <<< $eliminated)" -gt 0 && -n "$eliminated" ]]; then
+		if [[ "$eliminated_amount" -gt 0 && -n "$eliminated" ]]; then
 			echo "Warning! Found only words matching already-correct and unused characters"
 			word=$(shuf -n1 <<< "$eliminated")
 		else
 			unused_characters=$(echo "${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
 			eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
-			if [[ "$(wc -l <<< $eliminated)" -gt 0 && -n "$eliminated" ]]; then
+			if [[ "$eliminated_amount" -gt 0 && -n "$eliminated" ]]; then
 				echo "Warning! Found only words matching already-correct, wrong-spot and unused characters"
 				word=$(shuf -n1 <<< "$eliminated")
 			else
@@ -181,7 +187,7 @@ look_for_word() {
 }
 look_for_word
 if [ "$full_search_amount" -eq 1 ]; then
-	break
+	exit 0
 fi
 shuffle_word
 
