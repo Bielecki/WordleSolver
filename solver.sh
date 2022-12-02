@@ -32,6 +32,60 @@ shuffle_word() {
 		read -r word
 		echo "Now please enter its result:"
 		read -r result
+	elif [ "$result" == "eliminate" ]; then
+		eliminate_words
+	fi
+}
+
+search_eliminated_words() {
+	eliminated=$(grep -E "[$unused_characters]{5}" words.txt)
+	#check if we can provide word without repeating letters
+	if [[ $(grep -Ev '^.*(.).*\1.*$' <<< "$eliminated" | wc -w) -gt 0 ]]; then
+		#if words with all unique letter are found, save only these
+		eliminated=$(grep -Ev '^.*(.).*\1.*$' <<< "$eliminated")
+	fi
+}
+
+eliminate_words() {
+	alphabet=( $(printf "%s " {a..z}) )
+	unused_characters=$(echo "${certain_characters[@]} ${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
+	search_eliminated_words	#search for eliminated words
+	if [[ -n "$eliminated" ]]; then
+		word=$(shuf -n1 <<< "$eliminated")
+	else
+		unused_characters=$(echo "${legal_characters[@]} ${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
+		search_eliminated_words	#search for eliminated words
+		if [[ -n "$eliminated" ]]; then
+			echo "Warning! Found only words matching already-correct and unused characters"
+			word=$(shuf -n1 <<< "$eliminated")
+		else
+			unused_characters=$(echo "${illegal_characters[@]} ${alphabet[@]}" | tr ' ' '\n' | sort | uniq -u | tr '\n' ' ')
+			search_eliminated_words	#search for eliminated words
+			if [[ -n "$eliminated" ]]; then
+				echo "Warning! Found only words matching already-correct, wrong-spot and unused characters"
+				word=$(shuf -n1 <<< "$eliminated")
+			else
+				echo "Cannot create word with characters left"
+				shuffle_word
+			fi
+		fi
+	fi
+
+#	eliminated_amount=$(wc -w <<< "$eliminated")
+	printf "Found $(wc -w <<< $eliminated) words, that could help you eliminate characters: "
+	if [ "$(wc -w <<< $eliminated)" -gt 20 ]; then
+		printf "not giving list - too many\n"
+	else
+		printf "\n$eliminated\n"
+	fi
+	echo "Try this one: ${bold}${word}${normal}, or enter 'other' to provide your own word"
+	read -r result
+
+	if [ "$result" == "other" ]; then
+		echo "Please provide word then:"
+		read -r word
+		echo "Now please enter its result:"
+		read -r result
 	fi
 }
 
@@ -125,7 +179,7 @@ create_search
 
 look_for_word() {
 	full_search=$(grep -Pi "^${prefix}${search}.{5}" words.txt)
-	full_search_amount=$(wc -l <<< "$full_search")
+	full_search_amount=$(wc -w <<< "$full_search")
 	printf "There are $full_search_amount words found: "
 	if [ "$full_search_amount" -gt 20 ]; then
 		printf "not giving list - too many\n"
@@ -135,7 +189,7 @@ look_for_word() {
 }
 look_for_word
 if [ "$full_search_amount" -eq 1 ]; then
-	break
+	exit 0
 fi
 shuffle_word
 
@@ -151,3 +205,5 @@ until [ "$full_search_amount" -eq 1 ]; do
 	fi
 	shuffle_word
 done
+
+set +x
