@@ -2409,7 +2409,6 @@ hulls
 human
 humid
 humor
-humpf
 humph
 humps
 humpy
@@ -2915,7 +2914,6 @@ lucid
 lucks
 lucky
 lucre
-lulab
 lulls
 lulus
 lumen
@@ -5270,7 +5268,6 @@ umiak
 umped
 umpty
 unapt
-unarc
 unarm
 unary
 unate
