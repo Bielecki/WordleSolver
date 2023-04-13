@@ -785,7 +785,6 @@ carol
 carom
 caron
 carps
-carpy
 carry
 carte
 carts
